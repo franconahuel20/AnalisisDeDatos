@@ -1,0 +1,1540 @@
+---
+title: "HousePriceDataAnalysis"
+author: "Campos Jose Miguel, Herrera Franco Nahuel, Medina Milagros"
+date: "15/12/2021"
+output:
+  html_notebook:
+    df_print: paged
+    fig:height: 4
+    fig:width: 6
+    theme: readable
+    toc: yes
+    toc_float: yes
+  html_document:
+    toc: yes
+    toc:float: yes
+---
+######################
+# Introducción
+######################
+El dataset provisto contiene información de los precios de las casas en la ciudad de King County en el estado de Seattle,
+Estados Unidos. Dicha información corresponde al período desde Mayo de 2014 hasta Mayo de 2015.
+Contiene 19 variables y 21613 observaciónes. La columna objetivo que se eligió para efectuar el análisis es "price".
+El presente trabajo iniciará con el análisis exploratorio de datos, la limpieza de valores atípicos, técnicas para la
+selección de variables, clustering para agrupar las observaciónes con valores similares y finalizará con la elaboración de 
+árboles de decisión para realizar la venta de una casa a determinado precio.
+
+######################
+# Librerías
+######################
+
+```{r Importar librerías}
+library("dplyr")
+library("corrplot")
+library("moments")
+library("psych")
+library("dataPreparation")
+library("data.table")
+library("caret")
+library("ggplot2")
+library("lmtest")
+library('mlr3data')
+library("leaps")
+library("fastDummies")
+library("glmnet")
+```
+
+######################
+# Diccionario de datos
+######################
+
+```{r Diccionario de datos}
+#id Identificación única de una casa.
+#date Fecha en la cual la casa fue vendida.
+#bedrooms Número de habitaciones/Casas.
+#bathrooms Números de baños/Habitaciones.
+#sqft_living Dimensión de la casa (pies cuadrados).
+#sqft_lot Dimensión del lote (pies cuadrados).
+#floors Número total de pisos de la casa.
+#waterfront Si la casa tiene una vista a un espejo de agua (lago, rio, etc).
+#view Si la casa ha sido vista.
+#condition Indica la condición general de la casa. (1: la propiedad no presenta buena
+#condición, 5: la condición de la casa es excelente).
+#grade Calificación general otorgada por un organismo (1: Pobre, 13: Excelente).
+#sqft_abovesquare Dimensiones de la casa aparte del sótano.
+#sqft_basementsquare Dimensiones del sótano.
+#yr_built Año de construcción de la vivienda.
+#yr_renovated Año cuando la casa recibió una renovación.
+#zipcode Código Postal.
+#latLatitude Coordenada.
+#longLongitude Coordenada.
+#sqft_living15 Dimensiones de la sala de estar en 2015 (implica algunas renovaciones).
+#Esto podría o no haber afectado el área del lote.
+#sqft_lot15lotSize Área in 2015 (implica algunas renovaciones).
+```
+######################
+# Dataset
+######################
+## Carga
+```{r Carga del dataset}
+raw_data_house <- kc_housing
+```
+## Establecer directorio de trabajo
+```{r Directorio de trabajo}
+setwd(getwd())
+```
+## Dimensiones
+```{r Dimensiones del dataset}
+#Mostramos las dimensiones del dataset
+dimensiones <- dim(raw_data_house)
+dimensiones
+```
+## Muestra
+```{r Muestra del dataset}
+raw_data_house
+```
+## Sumario
+```{r Sumario del dataset}
+sumario <- summary(raw_data_house)
+sumario
+```
+##########################
+# Varianza y Desviación estándar
+##########################
+## Varianza y Desviación estándar de price 
+```{r}
+var_price <- var(raw_data_house$price)
+sd_price <- sd(raw_data_house$price)
+var_price
+sd_price
+```
+## Varianza y Desviación estándar de bedrooms
+```{r}
+var_bedrooms <- var(raw_data_house$bedrooms)
+sd_bedrooms <- sd(raw_data_house$bedrooms)
+var_bedrooms
+sd_bedrooms
+```
+
+## Varianza y Desviación estándar de bathrooms 
+```{r}
+var_bathrooms <- var(raw_data_house$bathrooms)
+sd_bathrooms <- sd(raw_data_house$bathrooms)
+var_bathrooms
+sd_bathrooms
+```
+
+## Varianza y Desviación estándar de sqft_living
+```{r}
+var_sqft_living <- var(raw_data_house$sqft_living)
+sd_sqft_living <- sd(raw_data_house$sqft_living)
+var_sqft_living
+sd_sqft_living
+```
+
+## Varianza y Desviación estándar de sqft_lot 
+```{r}
+var_sqft_lot <- var(raw_data_house$sqft_lot)
+sd_sqft_lot <- sd(raw_data_house$sqft_lot)
+var_sqft_lot
+sd_sqft_lot
+```
+
+
+## Varianza y Desviación estándar de sqft_above 
+```{r}
+var_sqft_above <- var(raw_data_house$sqft_above)
+sd_sqft_above <- sd(raw_data_house$sqft_above)
+var_sqft_above
+sd_sqft_above
+```
+
+## Varianza y Desviación estándar de sqft_living15
+```{r}
+var_price <- var(raw_data_house$price)
+sd_price <- sd(raw_data_house$price)
+var_price
+sd_price
+```
+
+## Varianza y Desviación estándar de sqft_lot15 
+```{r}
+var_price <- var(raw_data_house$price)
+sd_price <- sd(raw_data_house$price)
+var_price
+sd_price
+```
+
+
+## Estructura
+```{r Estructura del dataset}
+estructura <- str(raw_data_house)
+```
+
+## Encontrar valores nulos
+
+Se buscan los valores nulos
+
+```{r Encontrar valores nulos}
+data.frame(Valores.nulos = sapply(raw_data_house,function(x){sum(is.na(x))}))
+           
+```
+## Convertir variables nulas a categóricas
+
+Convertimos las variables con observaciónes nulas a categóricas para no perder representatividad, ya que una variable(yr_renovated) al tener 20699 observaciónes nulas y el dataset tiene 21613, solo quedarían 914 observaciónes.
+
+```{r Convertir variables nulas a categóricas}
+#Convertimos las variables con observaciónes nulas a categóricas.
+raw_data_house$renovated = as.numeric(!is.na(raw_data_house$yr_renovated))
+raw_data_house$has_basement = as.numeric(!is.na(raw_data_house$sqft_basement))
+#Eliminamos las variables con observaciónes nulas
+raw_data_house$yr_renovated = NULL
+raw_data_house$sqft_basement = NULL
+raw_data_house$date = NULL
+```   
+
+## Convertir variables en factores
+```{r Convertir variables en factores}
+#Convertir en factores
+deleteme<-raw_data_house
+deleteme$price<-as.factor(raw_data_house$price)
+deleteme$bedrooms<-as.factor(raw_data_house$bedrooms)
+deleteme$bathrooms<-as.factor(raw_data_house$bathrooms)
+deleteme$sqft_living<-as.factor(raw_data_house$sqft_living)
+deleteme$sqft_lot<-as.factor(raw_data_house$sqft_lot)
+deleteme$floors<-as.factor(raw_data_house$floors)
+deleteme$waterfront<-as.factor(raw_data_house$waterfront)
+deleteme$view<-as.factor(raw_data_house$view)
+deleteme$condition<-as.factor(raw_data_house$condition)
+deleteme$grade<-as.factor(raw_data_house$grade)
+deleteme$sqft_above<-as.factor(raw_data_house$sqft_above)
+deleteme$has_basement<-as.factor(raw_data_house$has_basement)
+deleteme$renovated<-as.factor(raw_data_house$renovated)
+deleteme$yr_built<-as.factor(raw_data_house$yr_built)
+deleteme$zipcode<-as.factor(raw_data_house$zipcode)
+deleteme$lat<-as.factor(raw_data_house$lat)
+deleteme$long<-as.factor(raw_data_house$long)
+deleteme$sqft_living15<-as.factor(raw_data_house$sqft_living15)
+deleteme$sqft_lot15<-as.factor(raw_data_house$sqft_lot15)
+```
+## Sumario de dataset con factores
+```{r Sumario de dataset con factores}
+sumario_factores <- summary(deleteme)
+```
+Eliminar sumario de factores porqué era para tener conocimiento de las variables únicamente
+```{r Eliminar Sumario de factores}
+#Eliminación del sumario de factores porqué era para tener conocimiento de las variables únicamente
+rm(sumario_factores)
+```
+######################
+# Análisis exploratorio de datos
+######################
+## Boxplot de Price y Bedrooms
+
+```{r Boxplot de Price y Bedrooms}
+#precio_filtrado <- raw_data_house %>% filter(price<1000000)
+par(mfrow=c(1,2))
+boxplot(raw_data_house$price/1000,main="Price [1 = U$D 1000]")
+par(mfrow=c(1,2))
+boxplot(raw_data_house$bedrooms,main="bedrooms")
+
+```
+## Boxplot de bathrooms y sqft_living
+```{r Boxplot de bathrooms y sqft_living}
+par(mfrow=c(1,2))
+boxplot(raw_data_house$bathrooms,main="bathrooms")
+
+par(mfrow=c(1,2))
+boxplot(raw_data_house$sqft_living,main="sqft living")
+```
+## Boxplot de sqft_lot y floors
+```{r Boxplot de sqft_lot y floors}
+par(mfrow=c(1,2))
+boxplot(raw_data_house$sqft_lot,main="sqft lot")
+
+par(mfrow=c(1,2))
+boxplot(raw_data_house$floors,main="Floors")
+```
+## Pie plot de renovated
+```{r Pie plot de renovated}
+workclass_1 <- table(raw_data_house$renovated)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_1)*100,2),"%")
+pie(workclass_1,labels = lb, col = rainbow(2),main="Distribución de renovated")
+legend(-2.1,0.4,legend=names(workclass_1),cex=0.7,yjust=0.2, xjust = -0.1,
+       fill = rainbow(2), bty = "n")
+
+```
+## Pie plot de has_basement
+```{r Pie plot de has_basement}
+workclass_2 <- table(raw_data_house$has_basement)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_2)*100,2),"%")
+pie(workclass_2,labels = lb, col = rainbow(2),main="Distribución de has_basement")
+legend(-2.1,0.4,legend=names(workclass_2),cex=0.7,yjust=0.2, xjust = -0.1,
+       fill = rainbow(2), bty = "n")
+```
+
+## Pieplot de grade
+```{r Pieplot de grade}
+workclass_3<- table(raw_data_house$grade)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_3)*100,2),"%")
+pie(workclass_3,labels = lb, col = rainbow(13),main="Distribución de grade")
+legend(-2.1,0.4,legend=names(workclass_3),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+```
+
+## Pie plot de condition
+```{r Pie plot de condition}
+workclass_4<- table(raw_data_house$condition)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_4)*100,2),"%")
+pie(workclass_4,labels = lb, col = rainbow(13),main="Distribución de Condition")
+legend(-2.1,0.4,legend=names(workclass_4),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+```
+
+## Pie plot de view
+
+```{r Pie plot de view}
+workclass_5<- table(raw_data_house$view)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_5)*100,2),"%")
+pie(workclass_5,labels = lb, col = rainbow(13),main="Distribución de View")
+legend(-2.1,0.4,legend=names(workclass_5),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+
+```
+
+## Pie plot de waterfront
+
+```{r Pie plot de waterfront}
+raw_data_house <- dummy_cols(raw_data_house, select_columns = c("waterfront"), 
+remove_first_dummy = TRUE)
+raw_data_house$waterfront = NULL
+
+workclass_6<- table(raw_data_house$waterfront)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_6)*100,2),"%")
+pie(workclass_6,labels = lb, col = rainbow(13),main="Distribución de waterfront")
+legend(-2.1,0.4,legend=names(workclass_6),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+```
+
+## Boxplot de sqft above y sqft living 15
+```{r Boxplot de sqft above y sqft living 15}
+par(mfrow=c(1,2))
+boxplot(raw_data_house$sqft_above,main="sqft above")
+
+par(mfrow=c(1,2))
+boxplot(raw_data_house$sqft_living15,main="sqft living 15")
+```
+
+```{r}
+#Histogramas
+hist(raw_data_house$bedrooms,main="Histograma de Price",xlab="Price",freq=F,col="gray",breaks=10)
+
+x<-as.factor(raw_data_house$bedrooms)
+
+lines(density(raw_data_house$bedrooms),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(raw_data_house$bedrooms),sd=sd(raw_data_house$bedrooms)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de price
+```{r Histograma de raw price}
+#Histogramas
+hist(raw_data_house$price/1000,main="Histograma de Price",xlab="Price",freq=F,col="gray",breaks=10)
+
+x<-as.factor(raw_data_house$price/1000)
+
+lines(density(raw_data_house$price/1000),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(raw_data_house$price/1000),sd=sd(raw_data_house$price/1000)),
+      add=TRUE,
+      col = "red")
+```
+
+
+## Histograma de sqft_living
+```{r Histograma de sqft_living}
+hist(raw_data_house$sqft_living,main="Histograma de sqft_living",xlab="sqft_living",freq=F,col="gray",breaks=10)
+
+x<-as.factor(raw_data_house$sqft_living)
+
+lines(density(raw_data_house$sqft_living),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(raw_data_house$sqft_living),sd=sd(raw_data_house$sqft_living)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de sqft_lot
+```{r Histograma de sqft_lot}
+hist(raw_data_house$sqft_lot/1000,main="Histograma de sqft_lot",xlab="sqft_lot",freq=F,col="gray",breaks=10)
+
+x<-as.factor(raw_data_house$sqft_lot/1000)
+
+lines(density(raw_data_house$sqft_lot/1000),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(raw_data_house$sqft_lot/1000),sd=sd(raw_data_house$sqft_lot/1000)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de sqft_living15
+```{r Histograma de sqft_living15}
+hist(raw_data_house$sqft_living15,main="Histograma de sqft_living15",xlab="sqft_living15",freq=F,col="gray",breaks=10)
+
+x<-as.factor(raw_data_house$sqft_living15)
+
+lines(density(raw_data_house$sqft_living15),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(raw_data_house$sqft_living15),sd=sd(raw_data_house$sqft_living15)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de sqft_lot15
+```{r Histograma de sqft_lot15}
+hist(raw_data_house$sqft_lot15,main="Histograma de sqft_lot15",xlab="sqft_lot15",freq=F,col="gray",breaks=10)
+
+x<-as.factor(raw_data_house$sqft_lot15)
+
+lines(density(raw_data_house$sqft_lot15),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(raw_data_house$sqft_lot15),sd=sd(raw_data_house$sqft_lot15)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de yr_built
+```{r Histograma de yr_built}
+
+
+hist(raw_data_house$yr_built,main="Histograma de yr_built",xlab="yr_built",freq=F,col="gray",breaks=10)
+
+x<-as.factor(raw_data_house$yr_built)
+
+lines(density(raw_data_house$yr_built),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(raw_data_house$yr_built),sd=sd(raw_data_house$yr_built)),
+      add=TRUE,
+      col = "red")
+```
+############################
+# Evaluación de variable objetivo price con el resto
+###########################
+## Distribución Price vs bathrooms
+```{r Distribución Price vs bathrooms}
+ggplot(data=raw_data_house,aes(x=bathrooms,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs bathrooms")
+```
+
+## Distribución Price vs bedrooms
+
+```{r Distribución Price vs bedrooms}
+ggplot(data=raw_data_house,aes(x=bedrooms,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs bedrooms")
+```
+
+## Distribución Price vs sqft_living
+
+```{r Distribución Price vs sqft_living}
+
+ggplot(data=raw_data_house,aes(x=sqft_living,y=price))+
+  geom_point(colour=c("firebrick3"))+
+  stat_smooth(method="lm",formula=y~poly(x,3),color="blue")+
+theme_bw()+labs(title="Distribución Price vs sqft_living")+
+  theme(plot.title=element_text(hjust=0.5,face="bold"))
+
+```
+
+## Distribución Price vs Sqft_living15
+```{r Distribución Price vs Sqft_living15}
+ggplot(data=raw_data_house,aes(x=sqft_living15,y=price))+
+  geom_point(colour=c("firebrick3"))+
+  stat_smooth(method="lm",formula=y~poly(x,3),color="blue")+
+theme_bw()+labs(title="Distribución Price vs sqft_living15")+
+  theme(plot.title=element_text(hjust=0.5,face="bold"))
+```
+
+## Distribución Price vs sqft_lot
+
+```{r Distribución Price vs sqft_lot}
+ggplot(data=raw_data_house,aes(x=sqft_lot,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs sqft_lot")
+```
+
+
+## Distribución Price vs sqft_lot15
+```{r Distribución Price vs sqft_lot15}
+ggplot(data=raw_data_house,aes(x=sqft_lot15,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs sqft_lot15")
+```
+
+## Distribución Price vs Grade
+```{r Distribución Price vs Grade}
+ggplot(data=raw_data_house,aes(x=grade,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs Grade")
+```
+
+## Distribución Price vs View
+```{r Distribución Price vs View}
+ggplot(data=raw_data_house,aes(x=view,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs View")
+```
+
+## Distribución Price vs waterfront
+```{r Distribución Price vs waterfront}
+ggplot(data=raw_data_house,aes(x=waterfront_TRUE,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs waterfront")
+```
+
+## Distribución Price vs renovated
+```{r Distribución Price vs renovated}
+ggplot(data=raw_data_house,aes(x=renovated,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs renovated")
+```
+
+## Matriz de correlación
+```{r Matriz de correlación}
+raw_data_house$date = NULL
+data_correlation<- cor(raw_data_house)
+data_correlation
+
+corrplot(data_correlation,method="square")
+```
+#################
+# Limpieza
+#################
+```{r Limpieza del dataset}
+dataset <- raw_data_house
+dataset$zipcode = NULL
+dataset$lat = NULL
+dataset$long = NULL
+dataset[15871,]$bedrooms=3
+dataset <- filter(dataset,!(price>850000))
+dataset <- filter(dataset,!(bedrooms<2))
+dataset <- filter(dataset,!(bedrooms>5))
+dataset <- filter(dataset,!(bathrooms<1))
+dataset <- filter(dataset,!(bathrooms>4))
+dataset <- filter(dataset,!(sqft_living>3200))
+dataset <- filter(dataset,!(sqft_living15<600))
+dataset <- filter(dataset,!(sqft_living15>2850))
+dataset <- filter(dataset,!(sqft_lot>12000))
+#dataset <- filter(dataset,!(sqft_lot15>250000))
+dataset <- filter(dataset,!(sqft_lot15>14000))
+dataset <- filter(dataset,!(sqft_above>2700))
+```
+Como se pudo observar en el análisis exploratorio de datos, el dataset cuenta con observaciónes con muchos valores atípicos, entonces se resuelve realizar la siguiente limpieza:
+En la fila 15871 donde una casa tenía 33 habitaciones se considera un error de imputación y se ingresa un 3.
+No se considera casas cuyo precio sea mayor a U$D 850.000.
+No se considera casas que no tengan habitaciones o mas de 5.
+No se considera casas que no tengan baños o que tengan más de 4.
+Las dimensiones de las casas registradas en 2014 no debe ser mayor a 3200 pies cuadrados.
+Las dimensiones de las casas registradas en 2015 deben estar entre los 600 y 2850 pies cuadrados.
+El tamaño del lote de las casas de 2014 no debe ser mayor a los 12000 pies cuadrados.
+El tamaño del lote de las casas de 2015 no debe ser mayor a los 14000 pies cuadrados.
+Las dimensiones de las casas sin considerar el sótano no debe ser mayor a los 2700 pies cuadrados.
+
+######################
+# Dataset limpio
+######################
+## Dimensiones
+```{r Dimensiones del dataset limpio}
+#Mostramos las dimensiones del dataset
+dimensiones_clean <- dim(dataset)
+dimensiones_clean
+```
+Con la limpieza de 21613 observaciónes, nos quedamos con 13910. Lo que significa una perdida del 35% de los datos.
+
+## Muestra
+```{r Muestra del dataset limpio}
+dataset
+```
+## Sumario 
+```{r Sumario del dataset limpio}
+sumario_clean <- summary(dataset)
+sumario_clean
+```
+######################
+# Análisis exploratorio de datos de dataset limpio
+######################
+## Boxplot de Price y Bedrooms
+
+```{r Boxplot de Price y Bedrooms del dataset limpio}
+#precio_filtrado <- raw_data_house %>% filter(price<1000000)
+par(mfrow=c(1,2))
+boxplot(dataset$price/1000,main="Price [1 = U$D 1000]")
+par(mfrow=c(1,2))
+boxplot(dataset$bedrooms,main="bedrooms")
+
+```
+## Boxplot de bathrooms y sqft_living
+```{r Boxplot de bathrooms y sqft_living del dataset limpio}
+par(mfrow=c(1,2))
+boxplot(dataset$bathrooms,main="bathrooms")
+
+par(mfrow=c(1,2))
+boxplot(dataset$sqft_living,main="sqft living")
+```
+## Boxplot de sqft_lot y floors
+```{r Boxplot de sqft_lot y floors del dataset limpio}
+par(mfrow=c(1,2))
+boxplot(dataset$sqft_lot,main="sqft lot")
+
+par(mfrow=c(1,2))
+boxplot(dataset$floors,main="Floors")
+```
+## Pie plot de renovated
+```{r Pie plot de renovated del dataset limpio}
+workclass_1 <- table(dataset$renovated)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_1)*100,2),"%")
+pie(workclass_1,labels = lb, col = rainbow(2),main="Distribución de renovated")
+legend(-2.1,0.4,legend=names(workclass_1),cex=0.7,yjust=0.2, xjust = -0.1,
+       fill = rainbow(2), bty = "n")
+
+```
+## Pie plot de has_basement
+```{r Pie plot de has_basement del dataset limpio}
+workclass_2 <- table(dataset$has_basement)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_2)*100,2),"%")
+pie(workclass_2,labels = lb, col = rainbow(2),main="Distribución de has_basement")
+legend(-2.1,0.4,legend=names(workclass_2),cex=0.7,yjust=0.2, xjust = -0.1,
+       fill = rainbow(2), bty = "n")
+```
+
+## Pieplot de grade
+```{r Pieplot de grade del dataset limpio}
+workclass_3<- table(dataset$grade)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_3)*100,2),"%")
+pie(workclass_3,labels = lb, col = rainbow(13),main="Distribución de grade")
+legend(-2.1,0.4,legend=names(workclass_3),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+```
+
+## Pie plot de condition
+```{r Pie plot de condition del dataset limpio}
+workclass_4<- table(dataset$condition)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_4)*100,2),"%")
+pie(workclass_4,labels = lb, col = rainbow(13),main="Distribución de Condition")
+legend(-2.1,0.4,legend=names(workclass_4),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+```
+
+## Pie plot de view
+
+```{r Pie plot de view del dataset limpio}
+workclass_5<- table(dataset$view)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_5)*100,2),"%")
+pie(workclass_5,labels = lb, col = rainbow(13),main="Distribución de View")
+legend(-2.1,0.4,legend=names(workclass_5),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+
+```
+
+## Pie plot de waterfront
+
+```{r Pie plot de waterfront del dataset limpio}
+
+
+workclass_6<- table(dataset$waterfront)
+
+
+par(mar = c("0","1"))
+lb = paste0(round(prop.table(workclass_6)*100,2),"%")
+pie(workclass_6,labels = lb, col = rainbow(13),main="Distribución de waterfront")
+legend(-2.1,0.4,legend=names(workclass_6),cex=0.7,yjust=0.9, xjust = -0.1,
+       fill = rainbow(13), bty = "n")
+```
+
+## Boxplot de sqft above y sqft living 15
+```{r Boxplot de sqft above y sqft living 15 del dataset limpio}
+par(mfrow=c(1,2))
+boxplot(dataset$sqft_above,main="sqft above")
+
+par(mfrow=c(1,2))
+boxplot(dataset$sqft_living15,main="sqft living 15")
+```
+
+
+
+## Histograma de price
+```{r Histograma de raw price del dataset limpio}
+#Histogramas
+hist(dataset$price/1000,main="Histograma de Price",xlab="Price",freq=F,col="gray",breaks=10)
+
+x<-as.factor(dataset$price/1000)
+
+lines(density(dataset$price/1000),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(dataset$price/1000),sd=sd(dataset$price/1000)),
+      add=TRUE,
+      col = "red")
+```
+
+
+## Histograma de sqft_living
+```{r Histograma de sqft_living del dataset limpio}
+hist(dataset$sqft_living,main="Histograma de sqft_living",xlab="sqft_living",freq=F,col="gray",breaks=10)
+
+x<-as.factor(dataset$sqft_living)
+
+lines(density(dataset$sqft_living),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(dataset$sqft_living),sd=sd(dataset$sqft_living)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de sqft_lot
+```{r Histograma de sqft_lot del dataset limpio}
+hist(dataset$sqft_lot,main="Histograma de sqft_lot",xlab="sqft_lot",freq=F,col="gray",breaks=10)
+
+x<-as.factor(dataset$sqft_lot)
+
+lines(density(dataset$sqft_lot),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(dataset$sqft_lot),sd=sd(dataset$sqft_lot)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de sqft_living15
+```{r Histograma de sqft_living15 del dataset limpio}
+hist(dataset$sqft_living15,main="Histograma de sqft_living15",xlab="sqft_living15",freq=F,col="gray",breaks=10)
+
+x<-as.factor(dataset$sqft_living15)
+
+lines(density(dataset$sqft_living15),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(dataset$sqft_living15),sd=sd(dataset$sqft_living15)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de sqft_lot15
+```{r Histograma de sqft_lot15 del dataset limpio}
+hist(dataset$sqft_lot15,main="Histograma de sqft_lot15",xlab="sqft_lot15",freq=F,col="gray",breaks=10)
+
+x<-as.factor(dataset$sqft_lot15)
+
+lines(density(dataset$sqft_lot15),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(dataset$sqft_lot15),sd=sd(dataset$sqft_lot15)),
+      add=TRUE,
+      col = "red")
+```
+
+## Histograma de yr_built
+```{r Histograma de yr_built del dataset limpio}
+
+
+hist(dataset$yr_built,main="Histograma de yr_built",xlab="yr_built",freq=F,col="gray",breaks=10)
+
+x<-as.factor(dataset$yr_built)
+
+lines(density(dataset$yr_built),col="blue",lwd=2)
+curve(dnorm(x,mean=mean(dataset$yr_built),sd=sd(dataset$yr_built)),
+      add=TRUE,
+      col = "red")
+```
+############################
+# Evaluación de variable objetivo price con el resto del dataset limpio
+###########################
+## Distribución Price vs bathrooms
+```{r Distribución Price vs bathrooms del dataset limpio}
+ggplot(data=dataset,aes(x=bathrooms,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs bathrooms")
+```
+
+## Distribución Price vs bedrooms
+
+```{r Distribución Price vs bedrooms del dataset limpio}
+ggplot(data=dataset,aes(x=bedrooms,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs bedrooms")
+```
+
+## Distribución Price vs sqft_living
+
+```{r Distribución Price vs sqft_living del dataset limpio}
+
+ggplot(data=dataset,aes(x=sqft_living,y=price))+
+  geom_point(colour=c("firebrick3"))+
+  stat_smooth(method="lm",formula=y~poly(x,3),color="blue")+
+theme_bw()+labs(title="Distribución Price vs sqft_living")+
+  theme(plot.title=element_text(hjust=0.5,face="bold"))
+
+```
+
+## Distribución Price vs Sqft_living15
+```{r Distribución Price vs Sqft_living15 del dataset limpio}
+ggplot(data=dataset,aes(x=sqft_living15,y=price))+
+  geom_point(colour=c("firebrick3"))+
+  stat_smooth(method="lm",formula=y~poly(x,3),color="blue")+
+theme_bw()+labs(title="Distribución Price vs sqft_living15")+
+  theme(plot.title=element_text(hjust=0.5,face="bold"))
+```
+
+## Distribución Price vs sqft_lot
+
+```{r Distribución Price vs sqft_lot del dataset limpio}
+ggplot(data=dataset,aes(x=sqft_lot,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs sqft_lot")
+```
+
+
+## Distribución Price vs sqft_lot15
+```{ Distribución Price vs sqft_lot15 del dataset limpio}
+ggplot(data=dataset,aes(x=sqft_lot15,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs sqft_lot15")
+```
+
+## Distribución Price vs Grade
+```{r Distribución Price vs Grade del dataset limpio}
+ggplot(data=dataset,aes(x=grade,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs Grade")
+```
+
+## Distribución Price vs View
+```{r Distribución Price vs View del dataset limpio}
+ggplot(data=dataset,aes(x=view,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs View")
+```
+
+## Distribución Price vs waterfront
+```{r Distribución Price vs waterfront del dataset limpio}
+ggplot(data=dataset,aes(x=waterfront_TRUE,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs waterfront")
+```
+
+## Distribución Price vs renovated
+```{r Distribución Price vs renovated del dataset limpio}
+ggplot(data=dataset,aes(x=renovated,y=price))+
+  geom_point(colour=c("firebrick3"))+ggtitle("Distribución Price vs renovated")
+```
+
+## Matriz de correlación del dataset limpio
+```{r Matriz de correlación del dataset limpio}
+#raw_data_house$date = NULL
+data_correlation<- cor(dataset)
+data_correlation
+
+corrplot(data_correlation,method="square")
+```
+
+##Calculo de VIF de cada variable
+```{r}
+mlr <- lm(formula=price ~ ., data = dataset)
+summary(mlr)
+```
+```{r}
+library("car")
+vif(mlr)
+```
+Como se puede ver los valores que tienen una alta posibilidad de colinealidad son sqft_living, sqft_lot, sqft_above y sqft_lot15
+
+############################
+# Selección de modelos y regularización
+###########################
+## Selección de variables
+## Best Subset Selection
+
+Compara todos los posibles modelos usando un conjunto
+especifico de predictores.
+Muestra los modelos con mejores ajustes que contienen un
+predictor, dos predictores,..., n predictores.
+Al final contamos con un numero de modelos y sus respectivos 
+resumenes estadisticos.
+La ventaja es que es conceptualmente claro.
+La desventaja es que es computacionalmente inviable, hay muchos modelos a ejecutar.
+Para el presente caso son 15 predictores lo que equivaldría a 2^15 = 32.768 modelos
+
+```{r}
+regsubset.full <- regsubsets(price ~ ., data = dataset)
+```
+## Sumario de regsubset
+```{r}
+sumario.regsubset <- summary(regsubset.full)
+```
+La matriz de 8 filas es la cantidad de variables a evaluar con la variable objetivo. El número de fila es la cantidad de variables, la estrella en cada celda son las variables a tener en cuenta.
+Esto significa que si se quisiera hacer el análisis con una variable bastaría con grade. Con dos variables grade, yr_built y así sucesivamente.
+
+## Stepwise Selection
+El metodo selecciona un modelo agregando y eliminando predictores individuales, 
+de una a la vez, basado en su significancia estadística.
+
+El estadístico Cp compara la precision y el sesgo del modelo completo con modelos que incluyan un subconjunto de predictores.
+```{r}
+plot(sumario.regsubset$cp,xlab = "Numero de variable",ylab="CP",pch = 20, type="b")
+value.min <- which.min(sumario.regsubset$cp)
+
+points(value.min,sumario.regsubset$cp[value.min],col = "red",cex = 2,pch = 20)
+```
+Ploteo de Cp
+```{r}
+plot(regsubset.full,scale="Cp")
+```
+Coeficiente de Determinacion R^2
+```{r}
+plot(sumario.regsubset$rsq,xlab = "Numero de variable",ylab="R^2",pch = 20, type="b")
+value.max <- which.max(sumario.regsubset$rsq)
+
+points(value.min,sumario.regsubset$rsq[value.max],col = "red",cex = 2,pch = 20)
+```
+Ploteo de R^2
+```{r}
+plot(regsubset.full,scale="r2")
+```
+Residual Sum Square (RSS)
+```{r}
+plot(sumario.regsubset$rss,xlab = "Numero de variable",ylab="RSS",pch = 20, type="b")
+value.min <- which.min(sumario.regsubset$rss)
+
+points(value.min,sumario.regsubset$rss[value.min],col = "red",cex = 2,pch = 20)
+```
+Bayesian Information Criterion(BIC)
+```{r}
+plot(sumario.regsubset$bic,xlab = "Numero de variable",ylab="BIC",pch = 20, type="b")
+value.min <- which.min(sumario.regsubset$bic)
+
+points(value.min,sumario.regsubset$bic[value.min],col = "red",cex = 2,pch = 20)
+```
+```{r}
+plot(regsubset.full,scale="bic")
+```
+R^2 Ajustado
+```{r}
+plot(sumario.regsubset$adjr2,xlab = "Numero de variable",ylab="adjr2",pch = 20, type="b")
+value.max <- which.max(sumario.regsubset$adjr2)
+
+points(value.min,sumario.regsubset$adjr2[value.max],col = "red",cex = 2,pch = 20)
+```
+```{r}
+plot(regsubset.full,scale="adjr2")
+```
+Coeficientes
+```{r}
+coef(regsubset.full,8)
+```
+Cp, AIC, BIC y R^2 ajustado son tecnicas que ajustan el error de
+entrenamiento para el tamaño del modelo y pueden ser usados para 
+seleccionar entre un conjunto de modelos con diferentes numeros de 
+variables.
+
+## Conjunto de validación 
+Para el caso de estudio de House Price, se debera proceder a dividir las observaciones en dos: primero en entrenamiento (train, 70 %) y prueba (test, 30 %). Las proporciones pueden variar.
+
+```{r}
+index <- createDataPartition(dataset$price, p = 0.7, list = FALSE)
+data.train <- dataset[index, ]
+data.test <- dataset[-index, ]
+```
+
+Ejecutamos la instruccion regsubsets con los datos de entranamiento, a su vez, se busca que el numero máximo de parámetros sea 8 (nvmax) y el metodo forward. Posteriormente se muestra el sumario de los resultados.
+
+```{r}
+set.seed(10)
+model.fwd <- regsubsets(price ~., data = data.train, nvmax = 11, method = "forward")
+summary(model.fwd)
+
+```
+
+## Validación cruzada
+
+```{r}
+set.seed(7)
+folds <- sample(rep(1:8, length = nrow(dataset)))
+folds
+table(folds)
+```
+
+## Metodos de contraccion
+## Ridge
+
+Aplicamos la funcion model.matrix() para la transformacion de datos dado que glmnet() solo acepta valores numericos.
+
+```{r}
+x.ridge <- model.matrix(price ~. , dataset)[,-1]
+y.ridge <- dataset$price
+```
+
+Si bien la funcion glmnet() realiza la regresion de Ridge de manera automática para un 
+rango de valores de λ. Sin embargo, se ha decidido implementar la funcion sobre una grilla 
+de valores que va desde λ = 1010 a λ = 10−2
+El parametro alpha es igual a uno, que se
+corresponde a la regresion de ridge; para Lasso es 1. Por defecto  glmnet() realiza la
+estandarizacion de valores. 
+```{r}
+grid <- 10^seq(10,-2,length = 100)
+ridge.model <- glmnet(x.ridge, y.ridge, alpha = 0, lambda = grid)
+dim(coef(ridge.model))
+```
+## Ploteo de Ridge
+```{r}
+library("plotmo")
+plot_glmnet(ridge.model)
+```
+Una vez calculada la regresion de Ridge, debemos realizar la predicción de valores para obtener los coeficientes para el nuevo valor de λ. En este caso probamos con 10, pero hay que recordar que tienen 100 valores producto del uso de la grilla.
+```{r}
+predict(ridge.model, s = 10, type = "coefficients")
+```
+## Validación cruzada
+
+Para el caso de la validacion cruzada realizamos una división de los datos en 50 % para 
+entrenamiento y 50 % para test.
+
+```{r}
+set.seed(2)
+indices <- sample(c(TRUE,FALSE), nrow(dataset), replace = TRUE)
+y.test <- y.ridge[-indices]
+
+```
+El paquete glmnet() posee su propia instruccion para la validación cruzada: cv.glmnet().
+```{r}
+ridge.model.cv <- cv.glmnet(x.ridge[indices,], y.ridge[indices], alpha = 0) # Por defecto, 10-fold
+coef(ridge.model.cv)
+```
+Ploteo del modelo de ridge
+```{r}
+plot(ridge.model.cv)
+```
+En la figura se pueden observar dos líneas punteadas verticales, en este
+caso muy proximas entre si.
+La de la izquierda representa el mínimo de la validacion
+cruzada.
+La de la derecha representa el error estandar.
+
+En vez de usar un λ arbitrario, es mejor basarnos en la validacion cruzada para elegir el parametro de tuning. 
+```{r}
+bestlam <- ridge.model.cv$lambda.min
+bestlam
+```
+A continuacion, utiizaremos el λ mas bajo obtenido del calculo realizado en la validación cruzada para la prediccion basada en los datos de testing.
+
+```{r}
+ridge.pred <- predict(ridge.model, s = bestlam, newx = x.ridge[-indices,])
+
+```
+## RMSE de Ridge
+```{r}
+rmse.ridge <- sqrt(mean((ridge.pred - y.test)^2))
+rmse.ridge
+```
+Finalmente, reajustamos el modelo de regresion de ridge usando el dataset completo para estudiar los coeficientes. Para ello, usamos el valor de λ calculado por la validacion cruzada.
+```{r}
+out <- glmnet(x.ridge, y.ridge, alpha = 0)
+predict(out, type = "coefficients", s = bestlam)
+```
+Como es esperable ninguno de los coeficientes es exactamente igual a cero, dado que la regresion de ridge no realiza selección de variables.
+
+## Lasso
+
+Aplicamos la función model.matrix() para la transformación de datos dado que glmnet() solo acepta valores numéricos
+
+```{r}
+x <- model.matrix(price ~ ., dataset)[,-1]
+y <- dataset$price
+```
+Aplicamos la función glmnet con el parámetro alpha igual a 1 para indicar que utilizaremos la regresión Lasso
+```{r}
+library("glmnet")
+lasso.model <- glmnet(x,y,alpha = 1)
+
+plot_glmnet(lasso.model)
+
+```
+## Validación cruzada
+```{r}
+indices <- sample(c(TRUE,FALSE),nrow(dataset),replace=TRUE)
+cv.out<- cv.glmnet(x[indices,],y[indices],alpha=1)
+plot(cv.out)
+```
+En el caso de la regresion Lasso, la figura nos indica que el modelo 
+base, el valor minimo de la validacion cruzada, es de tamaño 15, mientras 
+que el error estandar es de tamaño 12. Por conseguiente, podemos 
+realizar nuestra eleccion del tamaño del modelo basandonos en esto.
+
+Mostramos los coeficientes calculados
+```{r}
+coef(cv.out)
+```
+
+Como se observa en el listado de coeficientes algunos predictores están indicados con un punto(.), significa que su penalidad fue igual a 0 y no deben tenerse en cuenta para el modelo.
+
+En lugar de usar un parametro de tuning arbitrario, utilizamos el más bajo arrojado por la validacion cruzada.
+
+```{r}
+bestlam <- cv.out$lambda.min
+bestlam
+```
+A continuacion, predecimos el lambda junto a los datos de prueba.
+```{r}
+lasso.pred <- predict(lasso.model,s=bestlam,newx=x[-indices,])
+value_2 <- mean((lasso.pred-y[-indices])^2)
+```
+## RMSE de Lasso
+```{r}
+rmse_2 <- sqrt(value_2)
+rmse_2
+```
+Se puede observar que el RMSE de Lasso es el menor de todos, por lo tanto es el más efectivo para la selección de variables.
+El siguiente paso es dividir el dataset en diferentes clústers.
+
+######################
+# Selección final de variables
+######################
+En base a los coeficientes de Lasso se procede a elegir las variables para continuar con el análisis.
+```{r}
+dataset_clustering <- dataset
+dataset_clustering$bedrooms = NULL
+dataset_clustering$sqft_above = NULL
+dataset_clustering$waterfront_TRUE = NULL
+dataset_clustering$yr_built = NULL
+dataset_clustering$has_basement = NULL
+dataset_clustering$renovated = NULL
+dataset_clustering$condition = NULL
+dataset_clustering$view = NULL
+#dataset_clustering$sqft_living15 = NULL
+dataset_clustering$sqft_living = NULL
+dataset_clustering$sqft_lot = NULL
+dataset_clustering$sqft_lot15 = NULL
+dataset_clustering$floors = NULL
+dataset_clustering$grade = NULL
+```
+
+######################
+# Clustering
+######################
+## Dimensiones de dataset para clustering
+```{r}
+dimensiones_clustering <- dim(dataset_clustering)
+dimensiones_clustering
+```
+## Sumario de dataset para clustering
+```{r}
+sumario_clustering <- summary(dataset_clustering)
+sumario_clustering
+```
+## Estructura de dataset para clustering
+```{r}
+estructura_clustering <- str(dataset_clustering)
+estructura_clustering
+```
+## Factores de dataset para clustering
+```{r}
+factores_dataset <- dataset_clustering
+factores_dataset$price <- as.factor(dataset_clustering$price)
+factores_dataset$bathrooms <- as.factor(dataset_clustering$bathrooms)
+#factores_dataset$floors <- as.factor(dataset_clustering$floors)
+#factores_dataset$grade <- as.factor(dataset_clustering$grade)
+factores_dataset$sqft_living15 <- as.factor(dataset_clustering$sqft_living15)
+#factores_dataset$sqft_lot15 <- as.factor(dataset_clustering$sqft_lot15)
+
+summary(factores_dataset)
+```
+Realizamos una transformación de las variables categoricas (encoding). Inmediatamente después eliminamos las columnas categóricas.
+
+```{r}
+library("fastDummies")
+dataset_clustering <- dummy_cols(dataset_clustering, c("bathrooms"),
+remove_first_dummy = TRUE)
+dataset_clustering[,c("bathrooms")] <- NULL
+
+deleteme <- dataset_clustering
+deleteme$bathrooms_1.5 = as.factor(dataset_clustering$bathrooms_1.5)
+deleteme$bathrooms_1.25 = as.factor(dataset_clustering$bathrooms_1.25)
+deleteme$bathrooms_1.75 = as.factor(dataset_clustering$bathrooms_1.75)
+deleteme$bathrooms_2 = as.factor(dataset_clustering$bathrooms_2)
+deleteme$bathrooms_2.5 = as.factor(dataset_clustering$bathrooms_2.5)
+deleteme$bathrooms_2.25 = as.factor(dataset_clustering$bathrooms_2.25)
+deleteme$bathrooms_2.75 = as.factor(dataset_clustering$bathrooms_2.75)
+deleteme$bathrooms_3 = as.factor(dataset_clustering$bathrooms_3)
+deleteme$bathrooms_3.25 = as.factor(dataset_clustering$bathrooms_3.5)
+deleteme$bathrooms_3.75 = as.factor(dataset_clustering$bathrooms_3.25)
+deleteme$bathrooms_4 = as.factor(dataset_clustering$bathrooms_4)
+
+
+```
+
+```{r}
+str(deleteme)
+```
+
+
+Una vez finalizada la limpieza y transformacion de los datos, se debe realizar la estandarizacion de los mismos mediante la función scale().
+
+
+
+```{r}
+dataset.scaled <- scale(dataset_clustering)
+```
+Mediante la funcion kmeans() calculamos los clusteres.
+```{r}
+k.means.fit <- kmeans(dataset.scaled, centers = 4, nstart = 300)
+print(k.means.fit)
+
+```
+A su vez, y mediante print(), podemos mostrar una serie de resultados tales como la suma de los cuadrados intercluster para cada cluster y el total.
+Finalmente, muestra las variables que nos pueden ser utiles para realizar numerosas operaciones.
+
+Mediante la variable size podemos ver cuantos objetos fueron asignados a cada cluster.
+
+```{r}
+ k.means.fit$size
+```
+
+```{r}
+k.means.fit$centers
+```
+## Validación de los clúster
+
+Siempre es conveniente evaluar si hay indicios de que realmente existe algun tipo de agrupacion. Este proceso se conoce como evaluación de la tendencia de cluster y se pueda llevar a cabo mediante dos tecnicas: (i) el estadıstico de Hopkins y (ii) la evaluacion visual de la tendencia del cluster.
+
+```{r}
+
+library("ggpubr")
+library("factoextra")
+data.simulated <- purrr::map_df(dataset_clustering, .f = function(x){ runif(n = length(x), min = min(x),
+max = max(x)) })
+data.simulated.scaled <- scale(data.simulated)
+
+pca_data_house <- prcomp(dataset.scaled)
+
+pca_data_simulated <- prcomp(data.simulated.scaled)
+
+p1 <- fviz_pca_ind(X = pca_data_house,
+geom = "point", title = "PCA - datos House",
+pallete = "jco") +
+theme_bw() + theme(legend.position = "bottom")
+
+p2 <- fviz_pca_ind(X = pca_data_simulated, geom = "point",
+title = "PCA - datos simulados", pallete = "jco") +
+theme_bw() + theme(legend.position = "bottom")
+
+ggarrange(p1, p2, common.legend = TRUE)
+```
+Una representacion grafica
+nos permitira comprobar 
+que el dataset HousePrice si
+contiene grupos reales
+mientras que los simulados
+no deberian.
+
+Agregamos al dataset el vector con el numero de clúster al que pertenece cada punto.
+
+```{r}
+#agregamos al dataset el vector con el numero de cl ´ uster al ´
+#que pertenece cada punto
+dataset_clustering <- cbind(dataset_clustering, cluster = k.means.fit$cluster)
+```
+
+Separación de cada clúster
+
+## Creación de cada clúster
+```{r}
+
+cluster_1 <- filter(dataset_clustering,dataset_clustering$cluster==1)
+cluster_1$cluster=NULL
+
+
+cluster_2 <- filter(dataset_clustering,dataset_clustering$cluster==2)
+cluster_2$cluster=NULL
+
+cluster_3 <- filter(dataset_clustering,dataset_clustering$cluster==3)
+cluster_3$cluster=NULL
+
+cluster_4 <- filter(dataset_clustering,dataset_clustering$cluster==4)
+cluster_4$cluster=NULL
+```
+
+
+## Sumario clúster 1
+```{r}
+sumario_cluster_1 <- summary(cluster_1)
+sumario_cluster_1
+```
+## Factores de baños
+```{r}
+deleteme_cluster_1 <- cluster_1
+deleteme_cluster_1$bathrooms_2.5 = as.factor(cluster_1$bathrooms_2.5)
+summary(deleteme_cluster_1)
+rm(deleteme_cluster_1)
+```
+
+Como puede observarse en el sumario del clúster 1. Se agrupan casas que cuestan en promedio U$D 450019, tienen como mínimo 700 pies cuadrados y como máximo 2850 de dimensiones. Las dimensiones de baño son 2.5 pies cuadrados, 14 casas no tienen baño y 3242 si lo tienen.
+
+## Dimensiones clúster 1
+```{r}
+dimensiones_cluster_1 <- dim(cluster_1)
+dimensiones_cluster_1
+```
+## Sumario clúster 2
+```{r}
+sumario_cluster_2 <- summary(cluster_2)
+sumario_cluster_2
+```
+## Factores de baños
+```{r}
+deleteme_cluster_2 <- cluster_2
+deleteme_cluster_2$bathrooms_1.5 = as.factor(cluster_2$bathrooms_1.5)
+deleteme_cluster_2$bathrooms_1.25 = as.factor(cluster_2$bathrooms_1.25)
+deleteme_cluster_2$bathrooms_1.75 = as.factor(cluster_2$bathrooms_1.75)
+deleteme_cluster_2$bathrooms_2 = as.factor(cluster_2$bathrooms_2)
+deleteme_cluster_2$bathrooms_3.25 = as.factor(cluster_2$bathrooms_3.25)
+summary(deleteme_cluster_2)
+```
+
+En el sumario del clúster 2 se advierte que se agrupan casas que cuestan en promedio U$D 393005, tienen como mínimo 620 pies cuadrados y como máximo 2850 de dimensiones y pueden tener baños de 1.5, 1.25, 1.75, 2 o 3.25 pies cuadrados. 2256 casas tienen baños de 1.75 pies cuadrados.
+
+## Dimensiones clúster 2
+```{r}
+dimensiones_cluster_2 <- dim(cluster_2)
+dimensiones_cluster_2
+```
+## Sumario clúster 3
+```{r}
+sumario_cluster_3 <- summary(cluster_3)
+sumario_cluster_3
+```
+## Factores de baños
+```{r}
+deleteme_cluster_3 <- cluster_3
+deleteme_cluster_3$bathrooms_2.75 = as.factor(cluster_3$bathrooms_2.75)
+deleteme_cluster_3$bathrooms_3 = as.factor(cluster_3$bathrooms_3)
+deleteme_cluster_3$bathrooms_3.5 = as.factor(cluster_3$bathrooms_3.5)
+deleteme_cluster_3$bathrooms_3.75 = as.factor(cluster_3$bathrooms_3.75)
+deleteme_cluster_3$bathrooms_4 = as.factor(cluster_3$bathrooms_4)
+summary(deleteme_cluster_3)
+```
+Las casas agrupadas en el clúster 3 lo hicieron porqué cuestan en promedio U$D 511272, tienen como mínimo 890 pies cuadrados y 2850 como máximo. Tienen baños de 2.75,3,3.5,3.75 y 4 pies cuadrados. La dimensión de baños que más se repite es de 2.75 pies cuadrados.
+
+## Dimensiones clúster 3
+```{r}
+dimensiones_cluster_3 <- dim(cluster_3)
+dimensiones_cluster_3
+```
+## Sumario clúster 4
+```{r}
+sumario_cluster_4 <- summary(cluster_4)
+sumario_cluster_4
+```
+## Factores de baños
+```{r}
+deleteme_cluster_4 <- cluster_4
+deleteme_cluster_4$bathrooms_2.25 = as.factor(cluster_4$bathrooms_2.25)
+summary(deleteme_cluster_4)
+```
+Finalmente, en el clúster 4. Las casas tienen un precio promedio de U$D 442309, las dimensiones son de 850 pies cuadrados como mínimo y 2850 como máximo. Todas tienen baños de 2.25 pies cuadrados.
+
+## Dimensiones clúster 4
+```{r}
+dimensiones_cluster_4 <- dim(cluster_4)
+dimensiones_cluster_4
+```
+## Validación interna
+## Ancho de Silhouette
+```{r}
+k.means.fit <- eclust(x = dataset.scaled, FUNcluster = "kmeans", k = 4, seed = 2,
+hc_metric = "euclidean", nstart = 150, graph = FALSE)
+
+fviz_silhouette(sil.obj = k.means.fit, print.summary = TRUE, palette = "jco",
+ggtheme = theme_classic())
+```
+El promedio del ancho de silhouette es de 0.26 y se ve en línea punteada en la gráfica, en la misma se observa que casi la mitad de los valores de los clústers 1 y 4 y la totalidad de los valores de los clúster 2 y 3 pueden estár en otro clúster.
+```{r}
+k.means.fit$silinfo$clus.avg.widths
+```
+Con el avg.widths de silhouette calculamos el ancho de cada clúster y se puede identificar los puntos más problemáticos.
+```{r}
+head(k.means.fit$silinfo$widths)
+```
+Con head vemos los puntos principales que están en el clúster 1 y su vecino es el clúster 4.
+
+A continuación filtramos los puntos que estén debajo del promedio observado en la gráfica de silhouette de 0.26
+```{r}
+k.means.fit$silinfo$widths %>% filter(sil_width <= 0.26)
+```
+```{r}
+p <- fviz_cluster(object = k.means.fit, geom = "point", ellipse.type = "norm",
+palette = "jco")
+p + geom_point(data = p$data[c(11444,7467,12828,6080,7929,4385,5852,10019,8534,6366),],
+colour = "firebrick", size = 2.5) + theme_bw() + theme(legend.position = "bottom")
+```
+
+########################
+# Árboles de decisión
+#######################
+```{r}
+library("tree")
+library("ISLR2")
+```
+Para desarrollar el ejemplo de árbol se utiliza como dataset uno de los clúster obtenidos. En este caso será el clúster 
+
+Analizamos el dataset usando un árbol de clasificación. Para lograrlo se crea una nueva variable denominada
+objetivo de acuerdo a los valores de price. 
+
+## Creación de variable binaria
+```{r}
+dataset.tree <- cluster_2
+objetivo <- factor(ifelse(dataset.tree$price>500000,"Yes","No")) #Crea una nueva variable binaria
+
+objetivo
+
+dataset.tree$objetivo = NULL
+```
+Luego se une la nueva variable al dataset.
+```{r}
+dataset.tree <- data.frame(dataset.tree,objetivo)
+```
+
+## Predicción de variable objetivo comparando con el resto de las variables.
+
+Mediante tree() ajustamos el árbol de clasificación de manera de predecir objetivo usando todas las variables menos price.
+
+```{r}
+tree.house <- tree(objetivo ~ .-price,dataset.tree)
+
+summary(tree.house)
+```
+El error de entrenamiento es del 23%. Un número indicativo que el árbol provee un regular ajuste a los datos.
+
+
+Una de las características de los árboles es la posibilidad de mostrar su estructura gráficamente. Para ello utilizamos 
+la función plot() para dibujarla y text() para mostrar
+
+## Ploteo del árbol
+```{r}
+plot(tree.house)
+text(tree.house,pretty=0)
+```
+El árbol indica que si se quisiera vender una casa con precio objetivo mayor a U$D 500.000, se debe tener en cuenta el tamaño de la casa. Si tiene dimensiónes mayores a los 2095 pies cuadrados la venta está recomendada.
+
+
+Para evaluar el desempeño del árbol de clasificación debemos estimar el error de prueba mas que simplemente
+computar el error de entrenamiento. Como siempre, debemos dividir el dataset en dos: train y test
+Se elige una proporción 50, 50. Como la cantidad de observaciónes es 8255, la mitad es 4127.
+
+## Entrenamiento y matriz de confusión
+```{r}
+#Evaluación
+set.seed(2)
+train <- sample(1:nrow(dataset.tree),4127)#Obtenemos los índices
+house.test <- dataset.tree[-train,] #utilizamos los índices para separar los datos
+
+objetivo.test <- objetivo[-train]
+
+#Calculamos el árbol con los datos de entrenamiento
+tree.house <- tree(objetivo ~. -price,dataset.tree,subset=train)
+
+
+tree.pred <- predict(tree.house,house.test,type="class")
+
+table(tree.pred,objetivo.test)
+```
+Se calcula el acierto de la matriz de confusión
+
+## Calculo de acierto de entrenamiento
+```{r}
+#Calculo de acierto
+(2901+233)/4127
+```
+Se obtiene un acierto del 75.9%
+
+A continuación evaluamos si la realización de una poda(prunning) que nos conduce a mejores resultados. La función cv.tree()
+realiza una validación cruzada para determinar el nivel óptimo del árbol. También se usa FUN porque deseamos que la tasa de error
+de clasificación guie el proceso de poda y validación cruzada.
+
+## Poda del árbol de decisión
+```{r}
+#Poda(prunning con la función cv.tree
+set.seed(7)
+cv.house <- cv.tree(tree.house,FUN = prune.misclass)
+names(cv.house)
+
+cv.house
+#size -> número de nodos terminales
+#dev -> numero de errores de validación cruzada
+#k -> valor del parámetro costo-complejidad utilizado
+```
+
+
+Se realiza el ploteo dónde se muestra el número de errores de validación cruzada. El de la izquierda en relación con el número de nodos terminales y el de la derecha con relación al valor del parámetro costo-complejidad utilizado.
+
+## Ploteo
+```{r}
+#Ploteo
+par(mfrow = c(1,2))
+plot(cv.house$size,cv.house$dev,type="b")
+plot(cv.house$k,cv.house$dev,type="b")
+```
+
+Como la menor cantidad de errores es 968, se realiza el análisis para 3 nodos para realizar la poda.
+
+Se realiza primero el árbol podado de 3 nodos terminales.
+
+## Ploteo de árbol de decisión podado
+```{r}
+prune_house_3 <- prune.misclass(tree.house,best=3)
+plot(prune_house_3)
+text(prune_house_3,pretty=0)
+
+```
+El árbol indica que si se quisiera vender una casa con precio objetivo mayor a U$D 500.000, se debe tener en cuenta el tamaño de la casa. Si tiene dimensiónes mayores a los 2015 pies cuadrados la venta está recomendada.
+```{r}
+summary(prune_house_3)
+```
+Se obtiene un error de entrenamiento del 22%. Por lo tanto el acierto mejoró con la poda.
+Se realiza la matriz de confusión para ver los aciertos del árbol podado
+
+## Matriz de confusión de árbol podado
+```{r}
+tree_pred_3 <- predict(prune_house_3,house.test,type="class")
+table(tree_pred_3,objetivo.test)
+```
+Se calcula el acierto de la matriz de confusión
+
+## Cálculo de acierto de árbol podado
+```{r}
+#Calculo de acierto
+(2901+233)/4127
+```
+Se puede ver que el acierto se mantiene en el mismo porcentaje
+
+
+
+##################
+# Conclusión
+#################
+Se concluye a partir del análisis realizado, que a la hora de efectuar la compra-venta de una casa. Las variables principales que los clientes y vendedores tienen en cuenta para determinar el precio de la propiedad son las dimensiones de baño, de la casa misma y la calificación asignada por un organismo oficial. A lo largo del proceso del análisis de los datos del dataset provisto se pudo realizar la limpieza de los valores atípicos o faltantes, agrupar las casas por caracterísiticas similares en dimensiones de la casa, de los baños y los precios de las mismas. A partir de la elección de uno de los clúster se realizaron árboles de decisión y se llegó a identificar que para vender una casa mayor a U$D 500.000 hay que tener en cuenta un rango de dimensiónes determinado para realizar la venta.
+
+
+
+
+
+
+
+
+
+
+
+
